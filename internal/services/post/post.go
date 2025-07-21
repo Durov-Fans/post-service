@@ -2,8 +2,10 @@ package post
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"post-service/domains/models"
+	"strings"
 )
 
 type Post struct {
@@ -18,8 +20,19 @@ func (p Post) GetPost(ctx context.Context, id string, userId int64) (models.Post
 
 func (p Post) GetAllPosts(ctx context.Context, userId int64) ([]models.Post, error) {
 	//TODO добавить проверку на права просмотра этого пользователя
+	paidArray := []models.SubInfo{{Id: 1, Level: "Supporter"}, {Id: 2, Level: "Exclusive"}, {Id: 3, Level: "Premium "}}
 
-	posts, err := p.postProvider.GetAllPosts(ctx, userId)
+	if len(paidArray) == 0 {
+		return nil, fmt.Errorf("лист подписок пуст")
+	}
+
+	var valueParts []string
+	for _, sub := range paidArray {
+		valueParts = append(valueParts, fmt.Sprintf("(%d, '%s')", sub.Id, sub.Level))
+	}
+	userSubsValues := strings.Join(valueParts, ", ")
+
+	posts, err := p.postProvider.GetAllPosts(ctx, userSubsValues)
 	if err != nil {
 		log.Println("Ошибка получения постов")
 		return nil, err
@@ -29,7 +42,7 @@ func (p Post) GetAllPosts(ctx context.Context, userId int64) ([]models.Post, err
 
 type PostProvider interface {
 	GetPost(ctx context.Context, id string, userId int64) (models.Post, error)
-	GetAllPosts(ctx context.Context, userId int64) ([]models.Post, error)
+	GetAllPosts(ctx context.Context, subArray string) ([]models.Post, error)
 }
 
 func New(postProvider PostProvider) *Post {

@@ -1,12 +1,18 @@
+CREATE TYPE subLevel AS enum (
+    'None',
+    'Supporter',
+    'Premium',
+    'Exclusive');
 CREATE TABLE posts (
     UserId INTEGER   ,
     Id serial  PRIMARY KEY  UNIQUE,
     Title varchar(80),
-    Media pg_catalog.json,
-    CreatedAt DATE
+    Media jsonb,
+    CreatedAt DATE,
+    Paid bool default false,
+    SubLevel subLevel default 'None'
 );
-
-CREATE TABLE IF NOT EXISTS comments
+CREATE TABLE comments
 (
     id     INTEGER PRIMARY KEY,
     UserId INTEGER ,

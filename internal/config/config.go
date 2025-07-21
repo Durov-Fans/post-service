@@ -10,7 +10,7 @@ import (
 type Config struct {
 	Env         string       `yaml:"env" env-default:"local"`
 	DatabaseUrl string       `yaml:"database_url" env-required:"true"`
-	Server      ServerConfig `yaml:"server" env-required:"true"`
+	Server      ServerConfig `yaml:"rest" env-required:"true"`
 }
 
 type ServerConfig struct {

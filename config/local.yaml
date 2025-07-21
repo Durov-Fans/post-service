@@ -1,0 +1,4 @@
+env: "local"
+database_url: "postgres://gen_user:password@217.198.9.128:5432/posts-service?sslmode=disable"
+server:
+  port: ":8080"

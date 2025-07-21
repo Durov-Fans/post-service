@@ -20,6 +20,7 @@ func New(port string, storageUrl string) *App {
 	postService := post.New(storage)
 
 	postApp := rest.NewRestApp(postService, port)
+
 	return &App{
 		RestApp: *postApp,
 	}

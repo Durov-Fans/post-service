@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"post-service/internal/rest/server"
+	"post-service/internal/server/rest"
 	"post-service/internal/services/post"
 	"time"
 )
@@ -16,7 +16,7 @@ type RestApp struct {
 }
 
 func NewRestApp(postService *post.Post, port string) *RestApp {
-	server := server.NewServer(*postService, port)
+	server := rest.NewServer(*postService, port)
 
 	return &RestApp{
 		server: server,
@@ -31,17 +31,17 @@ func (app *RestApp) MustRun() {
 }
 
 func (app *RestApp) Run() error {
-	log.Printf("Rest server listening on port %s", app.port)
+	log.Printf("Rest rest listening on port %s", app.port)
 
 	go func() {
 		if err := app.server.ListenAndServe(); err != nil {
-			log.Printf("Error starting http server on port %s", app.port)
+			log.Printf("Error starting http rest on port %s", app.port)
 		}
 	}()
 	return nil
 }
 func (app *RestApp) Stop() {
-	log.Printf("Rest server shutting down")
+	log.Printf("Rest rest shutting down")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
