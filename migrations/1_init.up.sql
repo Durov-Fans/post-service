@@ -6,18 +6,19 @@ CREATE TYPE subLevel AS enum (
 CREATE TABLE posts (
     UserId INTEGER   ,
     Id serial  PRIMARY KEY  UNIQUE,
-    Title varchar(80),
+    Description TEXT,
     Media jsonb,
     CreatedAt DATE,
+    likeNum integer default 0,
     Paid bool default false,
     SubLevel subLevel default 'None'
 );
 CREATE TABLE comments
 (
-    id     INTEGER PRIMARY KEY,
+    Id serial  PRIMARY KEY  UNIQUE,
     UserId INTEGER ,
     PostId INTEGER ,
     Description   TEXT NOT NULL,
-    CreatedAt DATE,
-    UpdatedAt DATE
+    CreatedAt DATE default now(),
+    UpdatedAt DATE default now()
 );

@@ -11,10 +11,14 @@ type Config struct {
 	Env         string       `yaml:"env" env-default:"local"`
 	DatabaseUrl string       `yaml:"database_url" env-required:"true"`
 	Server      ServerConfig `yaml:"rest" env-required:"true"`
+	JWT         JWTSecret    `yaml:"jwt" env-required:"true"`
 }
 
 type ServerConfig struct {
 	Port string `yaml:"port" env-default:":8080"`
+}
+type JWTSecret struct {
+	Secret string `yaml:"secret" env-required:"true"`
 }
 
 func MustLoad() *Config {

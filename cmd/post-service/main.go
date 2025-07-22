@@ -14,7 +14,7 @@ func main() {
 
 	log.Printf("Config: %v", cfg)
 
-	application := app.New(cfg.Server.Port, cfg.DatabaseUrl)
+	application := app.New(cfg.Server.Port, cfg.DatabaseUrl, cfg.JWT.Secret)
 
 	application.RestApp.MustRun()
 

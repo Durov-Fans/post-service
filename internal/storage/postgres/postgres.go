@@ -23,7 +23,7 @@ func (s Storage) CreatePost(ctx context.Context, req *post.CreatePostRequest) (*
 	}
 	defer tx.Rollback(ctx)
 
-	_, err = tx.Exec(ctx, `INSERT INTO posts (title, userid, media,paid,sublevel, createdat)
+	_, err = tx.Exec(ctx, `INSERT INTO posts (description, userid, media,paid,sublevel, createdat)
          VALUES ($1, $2, $3,$4,$5, NOW())`, req.GetTitle(), req.GetUserid(), req.GetMedia(), req.GetPaid(), req.GetSubLevel())
 
 	if err != nil {
@@ -36,11 +36,130 @@ func (s Storage) CreatePost(ctx context.Context, req *post.CreatePostRequest) (*
 	}
 	return &post.CreatePostResponse{Success: true}, nil
 }
+func (s Storage) CreateComment(ctx context.Context, postId int64, userId int64, description string) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		log.Println("Ошибка транзакции")
+		return err
+	}
+	defer tx.Rollback(ctx)
 
-func (s Storage) GetPost(ctx context.Context, id string, userId int64) (models.Post, error) {
-	panic("dfsdf")
+	var postExist bool
+	err = tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM posts WHERE id = $1)`, postId).Scan(&postExist)
+
+	if err != nil || !postExist {
+
+		return fmt.Errorf("Такого поста не существует")
+	}
+
+	_, err = tx.Exec(ctx, `INSERT INTO comments ( userid, postId,description,updatedat, createdat)
+         VALUES ($1, $2, $3, NOW(), NOW())`, userId, postId, description)
+
+	if err != nil {
+		log.Fatal("Ошибка запроса к базе данных", err)
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("Ошибка комита")
+	}
+	return nil
 }
+func (s Storage) GetPost(ctx context.Context, id int64) (models.Post, error) {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		log.Printf("Ошибка создания транзакции: %s", err)
+		return models.Post{}, err
+	}
+	defer tx.Rollback(ctx)
+	var findPost models.Post
+	err = tx.QueryRow(ctx, `SELECT  * FROM posts WHERE id = $1`, id).Scan(&findPost.UserId, &findPost.Id, &findPost.Description, &findPost.Media, &findPost.CreatedAt, &findPost.LikeNum, &findPost.Paid, &findPost.SubLevel)
+	if err != nil {
+		return models.Post{}, err
+	}
+	log.Println("posts:", findPost)
 
+	if err := tx.Commit(ctx); err != nil {
+		return models.Post{}, fmt.Errorf("Ошибка комита")
+	}
+	return findPost, nil
+}
+func (s Storage) GetAllPostsByCreator(ctx context.Context, subArray models.SubInfo) ([]models.PostWithComments, error) {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		log.Printf("Ошибка создания транзакции: %s", err)
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+	postsRows, err := tx.Query(ctx, `WITH sub_levels AS (
+  SELECT * FROM (VALUES
+    ('None', 0),
+    ('Supporter', 1),
+    ('Premium', 2),
+    ('Exclusive', 3)
+  ) AS t(level, rank)
+),
+user_level AS (
+  SELECT $2::text AS level
+),
+creator_level AS (
+  SELECT sl.rank AS user_rank
+  FROM user_level ul
+  JOIN sub_levels sl ON sl.level = ul.level
+),
+accessible_posts AS (
+  SELECT p.*
+  FROM posts p
+  JOIN sub_levels ps ON ps.level = p.SubLevel::text,
+  creator_level cl
+  WHERE
+    p.UserId = $1
+    AND (
+      p.Paid = false
+      OR p.SubLevel = 'None'
+      OR ps.rank <= cl.user_rank
+    )
+)
+SELECT 
+  ap.Id,
+  ap.Description,
+  ap.UserId,
+  ap.Media,
+  ap.CreatedAt,
+  ap.Paid,
+  ap.SubLevel,
+  COALESCE(json_agg(json_build_object(
+    'id', c.Id,
+    'userId', c.UserId,
+    'description', c.Description,
+    'createdAt', c.CreatedAt,
+    'updatedAt', c.UpdatedAt
+  ) ORDER BY c.CreatedAt) FILTER (WHERE c.Id IS NOT NULL), '[]') AS comments
+FROM accessible_posts ap
+LEFT JOIN comments c ON c.PostId = ap.Id
+GROUP BY 
+  ap.Id,
+  ap.Description,
+  ap.UserId,
+  ap.Media,
+  ap.CreatedAt,
+  ap.Paid,
+  ap.SubLevel
+ORDER BY ap.CreatedAt DESC;
+`, subArray.Id, subArray.Level)
+
+	posts, err := pgx.CollectRows(postsRows, pgx.RowToStructByName[models.PostWithComments])
+	if err != nil {
+		log.Println(err)
+		return nil, err
+	}
+	log.Println("posts:", posts)
+
+	if err := tx.Commit(ctx); err != nil {
+		return []models.PostWithComments{}, fmt.Errorf("Ошибка комита")
+	}
+	return posts, nil
+}
 func (s Storage) GetAllPosts(ctx context.Context, subArray string) ([]models.Post, error) {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
@@ -98,7 +217,7 @@ ORDER BY pwl.CreatedAt DESC
 	posts, err := pgx.CollectRows(postsRows, pgx.RowToStructByName[models.Post])
 
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return nil, err
 	}
 	log.Println("posts:", posts)

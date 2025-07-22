@@ -15,8 +15,8 @@ type RestApp struct {
 	port   string
 }
 
-func NewRestApp(postService *post.Post, port string) *RestApp {
-	server := rest.NewServer(*postService, port)
+func NewRestApp(postService *post.Post, port string, secret string) *RestApp {
+	server := rest.NewServer(*postService, port, secret)
 
 	return &RestApp{
 		server: server,

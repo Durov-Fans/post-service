@@ -26,7 +26,7 @@ func (s PostGRPCServer) CreatePost(ctx context.Context, req *post.CreatePostRequ
 
 	response, err := s.PostProvider.CreatePost(ctx, req)
 	if err != nil {
-		log.Fatal("Ошибка CreatePost")
+		log.Println("Ошибка CreatePost")
 		return &post.CreatePostResponse{Success: false}, err
 	}
 

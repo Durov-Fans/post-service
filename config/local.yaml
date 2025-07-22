@@ -1,4 +1,6 @@
 env: "local"
 database_url: "postgres://gen_user:password@217.198.9.128:5432/posts-service?sslmode=disable"
-server:
-  port: ":8080"
+rest:
+  port: ":8081"
+jwt:
+  secret: "4918d1442c2da0f986a6be49fde103ba3876c457de751020d187ff550e9d3ac7d3210dc7"
