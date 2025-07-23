@@ -11,13 +11,14 @@ import (
 	"net/http"
 	"post-service/domains/models"
 	"post-service/internal/lib/jwt"
+	"post-service/internal/storage"
 	"strings"
 )
 
 type Post interface {
 	GetPost(ctx context.Context, postId int64, userId int64) (models.Post, error)
 	GetAllPosts(ctx context.Context, userId int64) ([]models.Post, error)
-	GetAllPostsByCreator(ctx context.Context, creatorId int64, userId int64) ([]models.PostWithComments, error)
+	GetAllPostsByCreator(ctx context.Context, creatorId int64, userId int64) ([]models.Post, error)
 	CreateComment(ctx context.Context, postId int64, userId int64, description string) error
 }
 
@@ -142,10 +143,11 @@ func (s *ServerApi) GetPost(w http.ResponseWriter, r *http.Request) {
 	post, err := s.services.GetPost(ctx, req.PostId, userId)
 	if err != nil {
 
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) || errors.As(err, &storage.ErrPostNotFound) {
 			http.Error(w, "Пост не найден", http.StatusNotFound)
 			return
 		}
+
 		http.Error(w, "ошибка сервера", http.StatusInternalServerError)
 		return
 	}

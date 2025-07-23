@@ -24,6 +24,7 @@ type Post struct {
 	LikeNum     int64     `json:"like_num" sql:"LikeNum"`
 	Paid        bool      `json:"paid" sql:"Paid"`
 	SubLevel    string    `json:"sub_level" sql:"SubLevel"`
+	CommentsNum int64     `json:"comments_num" sql:"CommentsNum"`
 }
 
 type GetPostRequest struct {

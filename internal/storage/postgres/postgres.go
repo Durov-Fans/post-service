@@ -84,14 +84,15 @@ func (s Storage) GetPost(ctx context.Context, id int64) (models.Post, error) {
 	}
 	return findPost, nil
 }
-func (s Storage) GetAllPostsByCreator(ctx context.Context, subArray models.SubInfo) ([]models.PostWithComments, error) {
+func (s Storage) GetAllPostsByCreator(ctx context.Context, subArray models.SubInfo) ([]models.Post, error) {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		log.Printf("Ошибка создания транзакции: %s", err)
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
-	postsRows, err := tx.Query(ctx, `WITH sub_levels AS (
+	postsRows, err := tx.Query(ctx, `
+WITH sub_levels AS (
   SELECT * FROM (VALUES
     ('None', 0),
     ('Supporter', 1),
@@ -121,20 +122,15 @@ accessible_posts AS (
     )
 )
 SELECT 
-  ap.Id,
-  ap.Description,
-  ap.UserId,
-  ap.Media,
-  ap.CreatedAt,
-  ap.Paid,
-  ap.SubLevel,
-  COALESCE(json_agg(json_build_object(
-    'id', c.Id,
-    'userId', c.UserId,
-    'description', c.Description,
-    'createdAt', c.CreatedAt,
-    'updatedAt', c.UpdatedAt
-  ) ORDER BY c.CreatedAt) FILTER (WHERE c.Id IS NOT NULL), '[]') AS comments
+  ap.Id              AS "Id",
+  ap.UserId          AS "UserId",
+  ap.Description     AS "Description",   
+  ap.Media::text     AS "Media",
+  ap.CreatedAt       AS "CreatedAt",
+   ap.LikeNum        AS "LikeNum",        
+  ap.Paid            AS "Paid",
+  ap.SubLevel        AS "SubLevel",
+  COUNT(c.Id)        AS "CommentsNum"
 FROM accessible_posts ap
 LEFT JOIN comments c ON c.PostId = ap.Id
 GROUP BY 
@@ -143,12 +139,13 @@ GROUP BY
   ap.UserId,
   ap.Media,
   ap.CreatedAt,
+  ap.LikeNum,
   ap.Paid,
   ap.SubLevel
 ORDER BY ap.CreatedAt DESC;
 `, subArray.Id, subArray.Level)
 
-	posts, err := pgx.CollectRows(postsRows, pgx.RowToStructByName[models.PostWithComments])
+	posts, err := pgx.CollectRows(postsRows, pgx.RowToStructByName[models.Post])
 	if err != nil {
 		log.Println(err)
 		return nil, err
@@ -156,7 +153,7 @@ ORDER BY ap.CreatedAt DESC;
 	log.Println("posts:", posts)
 
 	if err := tx.Commit(ctx); err != nil {
-		return []models.PostWithComments{}, fmt.Errorf("Ошибка комита")
+		return []models.Post{}, fmt.Errorf("Ошибка комита")
 	}
 	return posts, nil
 }
@@ -168,7 +165,8 @@ func (s Storage) GetAllPosts(ctx context.Context, subArray string) ([]models.Pos
 	}
 	defer tx.Rollback(ctx)
 
-	postsRows, err := tx.Query(ctx, fmt.Sprintf(`WITH sub_levels AS (
+	postsRows, err := tx.Query(ctx, fmt.Sprintf(`
+WITH sub_levels AS (
   SELECT * FROM (VALUES
     ('None', 0),
     ('Supporter', 1),
@@ -193,25 +191,42 @@ user_levels AS (
     sl.rank AS user_rank
   FROM user_subs us
   JOIN sub_levels sl ON sl.level = us.level
+),
+accessible_posts AS (
+  SELECT DISTINCT 
+    pwl.*
+  FROM post_with_levels pwl
+  LEFT JOIN user_levels ul ON ul.user_id = pwl.UserId
+  WHERE
+    pwl.Paid = false
+    OR pwl.SubLevel = 'None'
+    OR (
+      ul.user_id IS NOT NULL
+      AND pwl.post_rank <= ul.user_rank
+    )
 )
-SELECT DISTINCT 
-  pwl.UserId,
-  pwl.Id,
-  pwl.Title,
-  pwl.Media,
-  pwl.CreatedAt,
-  pwl.Paid,
-  pwl.SubLevel
-FROM post_with_levels pwl
-LEFT JOIN user_levels ul ON ul.user_id = pwl.UserId
-WHERE
-  pwl.Paid = false
-  OR pwl.SubLevel = 'None'
-  OR (
-    ul.user_id IS NOT NULL
-    AND pwl.post_rank <= ul.user_rank
-  )
-ORDER BY pwl.CreatedAt DESC
+SELECT 
+  ap.Id              AS "Id",
+  ap.UserId          AS "UserId",
+  ap.Description     AS "Description",   
+  ap.Media::text     AS "Media",
+  ap.CreatedAt       AS "CreatedAt",
+   ap.LikeNum        AS "LikeNum",        
+  ap.Paid            AS "Paid",
+  ap.SubLevel        AS "SubLevel",
+  COUNT(c.Id)        AS "CommentsNum"
+FROM accessible_posts ap
+LEFT JOIN comments c ON c.PostId = ap.Id
+GROUP BY 
+  ap.Id,
+  ap.UserId,
+  ap.Description,
+  ap.Media,
+  ap.CreatedAt,
+ap.LikeNum,
+  ap.Paid,
+  ap.SubLevel
+ORDER BY ap.CreatedAt DESC
 `, subArray))
 
 	posts, err := pgx.CollectRows(postsRows, pgx.RowToStructByName[models.Post])

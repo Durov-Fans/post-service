@@ -22,3 +22,9 @@ CREATE TABLE comments
     CreatedAt DATE default now(),
     UpdatedAt DATE default now()
 );
+CREATE TABLE likes
+(
+    Id serial  PRIMARY KEY  UNIQUE,
+    UserId INTEGER ,
+    PostId INTEGER
+);
