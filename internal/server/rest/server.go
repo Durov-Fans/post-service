@@ -16,7 +16,7 @@ import (
 )
 
 type Post interface {
-	GetPost(ctx context.Context, postId int64, userId int64) (models.Post, error)
+	GetPost(ctx context.Context, postId int64, userId int64) (models.PostWithComments, error)
 	GetAllPosts(ctx context.Context, userId int64) ([]models.Post, error)
 	GetAllPostsByCreator(ctx context.Context, creatorId int64, userId int64) ([]models.Post, error)
 	CreateComment(ctx context.Context, postId int64, userId int64, description string) error

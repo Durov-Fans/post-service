@@ -65,22 +65,55 @@ func (s Storage) CreateComment(ctx context.Context, postId int64, userId int64, 
 	}
 	return nil
 }
-func (s Storage) GetPost(ctx context.Context, id int64) (models.Post, error) {
+func (s Storage) GetPost(ctx context.Context, id int64) (models.PostWithComments, error) {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		log.Printf("Ошибка создания транзакции: %s", err)
-		return models.Post{}, err
+		return models.PostWithComments{}, err
 	}
 	defer tx.Rollback(ctx)
-	var findPost models.Post
-	err = tx.QueryRow(ctx, `SELECT  * FROM posts WHERE id = $1`, id).Scan(&findPost.UserId, &findPost.Id, &findPost.Description, &findPost.Media, &findPost.CreatedAt, &findPost.LikeNum, &findPost.Paid, &findPost.SubLevel)
+	var findPost models.PostWithComments
+	err = tx.QueryRow(ctx, `
+  SELECT 
+    p.UserId,
+    p.Id,
+    p.Description,
+    p.Media,
+    p.CreatedAt,
+    p.LikeNum,
+    p.Paid,
+    p.SubLevel,
+    COALESCE(json_agg(json_build_object(
+      'id', c.Id,
+      'userId', c.UserId,
+      'postId', c.PostId,
+      'description', c.Description,
+      'createdAt', c.CreatedAt,
+      'updatedAt', c.UpdatedAt
+    ) ORDER BY c.CreatedAt) FILTER (WHERE c.Id IS NOT NULL), '[]') AS Comments
+  FROM posts p
+  LEFT JOIN comments c ON c.PostId = p.Id
+  WHERE p.Id = $1
+  GROUP BY p.UserId, p.Id, p.Description, p.Media, p.CreatedAt, p.LikeNum, p.Paid, p.SubLevel
+`, id).Scan(
+		&findPost.UserId,
+		&findPost.Id,
+		&findPost.Description,
+		&findPost.Media,
+		&findPost.CreatedAt,
+		&findPost.LikeNum,
+		&findPost.Paid,
+		&findPost.SubLevel,
+		&findPost.Comments,
+	)
 	if err != nil {
-		return models.Post{}, err
+		log.Println(err)
+		return models.PostWithComments{}, err
 	}
 	log.Println("posts:", findPost)
 
 	if err := tx.Commit(ctx); err != nil {
-		return models.Post{}, fmt.Errorf("Ошибка комита")
+		return models.PostWithComments{}, fmt.Errorf("Ошибка комита")
 	}
 	return findPost, nil
 }

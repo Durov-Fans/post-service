@@ -3,10 +3,13 @@ package post
 import (
 	"context"
 	"fmt"
+	"github.com/Durov-Fans/protos/gen/go/creator"
+	"google.golang.org/grpc"
 	"log"
 	"post-service/domains/models"
 	"post-service/internal/storage"
 	"strings"
+	"time"
 )
 
 type Post struct {
@@ -26,13 +29,33 @@ func getLevelNum(level string) int {
 		return 0
 	}
 }
-func (p Post) GetPost(ctx context.Context, postId int64, userId int64) (models.Post, error) {
-	//TODO добавить проверку на права просмотра этого пользователя
-	paidArray := []models.SubInfo{{Id: 1, Level: "Supporter"}, {Id: 2, Level: "Exclusive"}, {Id: 3, Level: "Premium"}}
-
+func convert(resp *creator.GetTierAndCreatorIdResponse) []models.SubInfo {
+	var result []models.SubInfo
+	for _, item := range resp.Data {
+		result = append(result, models.SubInfo{
+			Id:    int64(item.CreatorId),
+			Level: item.TierType,
+		})
+	}
+	return result
+}
+func (p Post) GetPost(ctx context.Context, postId int64, userId int64) (models.PostWithComments, error) {
+	conn, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
+	if err != nil {
+		log.Println("failed to connect to user service: %v", err)
+	}
+	defer conn.Close()
+	client := creator.NewCreatorServiceClient(conn)
+	grpcCtx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	defer cancel()
+	paidRepeat, err := client.GetTierAndCreatorId(grpcCtx, &creator.GetTierAndCreatorIdRequest{UserId: 1})
+	if err != nil {
+		log.Println("Ошибка получения подписок")
+	}
+	paidArray := convert(paidRepeat)
 	postFind, err := p.postProvider.GetPost(ctx, postId)
 	if err != nil {
-		return models.Post{}, err
+		return models.PostWithComments{}, err
 	}
 	for _, sub := range paidArray {
 		if sub.Id == postFind.UserId {
@@ -43,10 +66,10 @@ func (p Post) GetPost(ctx context.Context, postId int64, userId int64) (models.P
 				return postFind, nil
 			}
 		} else {
-			return models.Post{}, storage.ErrPostNotFound
+			return models.PostWithComments{}, storage.ErrPostNotFound
 		}
 	}
-	return models.Post{}, storage.ErrPostNotFound
+	return models.PostWithComments{}, storage.ErrPostNotFound
 }
 func (p Post) CreateComment(ctx context.Context, postId int64, userId int64, description string) error {
 
@@ -58,9 +81,19 @@ func (p Post) CreateComment(ctx context.Context, postId int64, userId int64, des
 	return nil
 }
 func (p Post) GetAllPostsByCreator(ctx context.Context, creatorId int64, userId int64) ([]models.Post, error) {
-
-	paidArray := []models.SubInfo{{Id: 1, Level: "Supporter"}, {Id: 2, Level: "Exclusive"}, {Id: 3, Level: "Premium "}}
-
+	conn, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
+	if err != nil {
+		log.Println("failed to connect to user service: %v", err)
+	}
+	defer conn.Close()
+	client := creator.NewCreatorServiceClient(conn)
+	grpcCtx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	defer cancel()
+	paidRepeat, err := client.GetTierAndCreatorId(grpcCtx, &creator.GetTierAndCreatorIdRequest{UserId: 1})
+	if err != nil {
+		log.Println("Ошибка получения подписок")
+	}
+	paidArray := convert(paidRepeat)
 	var subByCreator models.SubInfo
 
 	for _, sub := range paidArray {
@@ -79,9 +112,20 @@ func (p Post) GetAllPostsByCreator(ctx context.Context, creatorId int64, userId 
 }
 
 func (p Post) GetAllPosts(ctx context.Context, userId int64) ([]models.Post, error) {
-	//TODO добавить проверку на права просмотра этого пользователя
-	paidArray := []models.SubInfo{{Id: 1, Level: "Supporter"}, {Id: 2, Level: "Exclusive"}, {Id: 3, Level: "Premium "}}
 
+	conn, err := grpc.Dial("localhost:50051", grpc.WithInsecure())
+	if err != nil {
+		log.Println("failed to connect to user service: %v", err)
+	}
+	defer conn.Close()
+	client := creator.NewCreatorServiceClient(conn)
+	grpcCtx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	defer cancel()
+	paidRepeat, err := client.GetTierAndCreatorId(grpcCtx, &creator.GetTierAndCreatorIdRequest{UserId: 1})
+	if err != nil {
+		log.Println("Ошибка получения подписок")
+	}
+	paidArray := convert(paidRepeat)
 	if len(paidArray) == 0 {
 		return nil, fmt.Errorf("лист подписок пуст")
 	}
@@ -101,7 +145,7 @@ func (p Post) GetAllPosts(ctx context.Context, userId int64) ([]models.Post, err
 }
 
 type PostProvider interface {
-	GetPost(ctx context.Context, id int64) (models.Post, error)
+	GetPost(ctx context.Context, id int64) (models.PostWithComments, error)
 	GetAllPosts(ctx context.Context, subArray string) ([]models.Post, error)
 	GetAllPostsByCreator(ctx context.Context, subArray models.SubInfo) ([]models.Post, error)
 	CreateComment(ctx context.Context, postId int64, userId int64, description string) error

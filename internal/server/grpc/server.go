@@ -51,7 +51,7 @@ func createPostValidate(req *post.CreatePostRequest) error {
 }
 
 func StartGRPCServer(postProvider PostProvider) {
-	lis, err := net.Listen("tcp", ":50052")
+	lis, err := net.Listen("tcp", ":5003")
 	if err != nil {
 		log.Fatalf("не удалось слушать порт: %v", err)
 	}
@@ -59,7 +59,7 @@ func StartGRPCServer(postProvider PostProvider) {
 	s := grpc.NewServer()
 	post.RegisterPostServiceServer(s, &PostGRPCServer{PostProvider: postProvider})
 
-	log.Println(" gRPC-сервер запущен на :50052")
+	log.Println(" gRPC-сервер запущен на :50053")
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("ошибка запуска сервера: %v", err)
 	}

@@ -9,22 +9,23 @@ type PostWithComments struct {
 	Id          int64           `json:"id" sql:"Id"`
 	UserId      int64           `json:"user_id" sql:"UserId"`
 	Description string          `json:"description" sql:"description"`
-	Media       string          `json:"media" sql:"Media"`
+	Media       json.RawMessage `json:"media" sql:"Media"`
 	CreatedAt   time.Time       `json:"created_at" sql:"CreatedAt"`
+	LikeNum     int64           `json:"like_num" sql:"LikeNum"`
 	Paid        bool            `json:"paid" sql:"Paid"`
 	SubLevel    string          `json:"sub_level" sql:"SubLevel"`
 	Comments    json.RawMessage `json:"comments" sql:"Comments"`
 }
 type Post struct {
-	Id          int64     `json:"id" sql:"Id"`
-	UserId      int64     `json:"user_id" sql:"UserId"`
-	Description string    `json:"description" sql:"description"`
-	Media       string    `json:"media" sql:"Media"`
-	CreatedAt   time.Time `json:"created_at" sql:"CreatedAt"`
-	LikeNum     int64     `json:"like_num" sql:"LikeNum"`
-	Paid        bool      `json:"paid" sql:"Paid"`
-	SubLevel    string    `json:"sub_level" sql:"SubLevel"`
-	CommentsNum int64     `json:"comments_num" sql:"CommentsNum"`
+	Id          int64           `json:"id" sql:"Id"`
+	UserId      int64           `json:"user_id" sql:"UserId"`
+	Description string          `json:"description" sql:"description"`
+	Media       json.RawMessage `json:"media" sql:"Media"`
+	CreatedAt   time.Time       `json:"created_at" sql:"CreatedAt"`
+	LikeNum     int64           `json:"like_num" sql:"LikeNum"`
+	Paid        bool            `json:"paid" sql:"Paid"`
+	SubLevel    string          `json:"sub_level" sql:"SubLevel"`
+	CommentsNum int64           `json:"comments_num" sql:"CommentsNum"`
 }
 
 type GetPostRequest struct {
@@ -32,6 +33,12 @@ type GetPostRequest struct {
 }
 type GetPostByCreatorRequest struct {
 	CreatorId int64 `json:"creator_id" sql:"Id"`
+}
+type CreatePostRequest struct {
+	Description string `json:"description" sql:"description"`
+	Media       string `json:"media" sql:"media"`
+	Paid        bool   `json:"paid" sql:"paid"`
+	SubLevel    string `json:"sub_Level" sql:"sub_level"`
 }
 
 //type GetPostResponse struct {
