@@ -3,13 +3,14 @@ package post
 import (
 	"context"
 	"fmt"
-	"github.com/Durov-Fans/protos/gen/go/creator"
-	"google.golang.org/grpc"
 	"log"
 	"post-service/domains/models"
 	"post-service/internal/storage"
 	"strings"
 	"time"
+
+	"github.com/Durov-Fans/protos/gen/go/creator"
+	"google.golang.org/grpc"
 )
 
 type Post struct {
@@ -75,6 +76,14 @@ func (p Post) CreateComment(ctx context.Context, postId int64, userId int64, des
 
 	if err := p.postProvider.CreateComment(ctx, postId, userId, description); err != nil {
 
+		return err
+	}
+
+	return nil
+}
+func (p Post) Like(ctx context.Context, postId int64, userId int64) error {
+
+	if err := p.postProvider.Like(ctx, postId, userId); err != nil {
 		return err
 	}
 
@@ -149,6 +158,7 @@ type PostProvider interface {
 	GetAllPosts(ctx context.Context, subArray string) ([]models.Post, error)
 	GetAllPostsByCreator(ctx context.Context, subArray models.SubInfo) ([]models.Post, error)
 	CreateComment(ctx context.Context, postId int64, userId int64, description string) error
+	Like(ctx context.Context, userId int64, postId int64) error
 }
 
 func New(postProvider PostProvider) *Post {
