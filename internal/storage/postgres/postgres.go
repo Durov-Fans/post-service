@@ -3,12 +3,15 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"log"
+	"post-service/domains/models"
+	"time"
+
 	"github.com/Durov-Fans/protos/gen/go/post"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"log"
 	"post-service/domains/models"
-	"strings"
 	"time"
 )
 
@@ -37,6 +40,37 @@ func (s Storage) CreatePost(ctx context.Context, req *post.CreatePostRequest) (*
 	}
 	return &post.CreatePostResponse{Success: true}, nil
 }
+func (s Storage) Like(ctx context.Context, userId int64, postId int64)  error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		log.Println("Ошибка транзакции")
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+
+	var postExist bool
+	err = tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM posts WHERE id = $1)`, postId).Scan(&postExist)
+
+	if err != nil || !postExist {
+
+		return fmt.Errorf("Такого поста не существует")
+	}
+
+	_, err = tx.Exec(ctx, `INSERT INTO posts ( userid, postid)
+         VALUES ($1, $2)`, userId, postId)
+
+	if err != nil {
+		log.Fatal("Ошибка запроса к базе данных")
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("Ошибка комита")
+	}
+	return nil
+}
+
 func (s Storage) CreateComment(ctx context.Context, postId int64, userId int64, description string) error {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
@@ -125,8 +159,7 @@ func (s Storage) GetAllPostsByCreator(ctx context.Context, subArray models.SubIn
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
-	postsRows, err := tx.Query(ctx, `
-WITH sub_levels AS (
+	postsRows, err := tx.Query(ctx, `WITH sub_levels AS (
   SELECT * FROM (VALUES
     ('None', 0),
     ('Supporter', 1),
@@ -198,16 +231,7 @@ func (s Storage) GetAllPosts(ctx context.Context, subArray string) ([]models.Pos
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
-	log.Println(subArray)
-	var userSubsQuery string
-	if strings.TrimSpace(subArray) == "" {
-		// Подписок нет — создаём пустую таблицу нужной структуры
-		userSubsQuery = `(SELECT NULL::bigint AS user_id, NULL::text AS level WHERE false)`
-	} else {
-		// Есть подписки — нормальный VALUES
-		userSubsQuery = fmt.Sprintf(`(VALUES %s)`, subArray)
-	}
-	log.Println(userSubsQuery)
+
 	postsRows, err := tx.Query(ctx, fmt.Sprintf(`
 WITH sub_levels AS (
   SELECT * FROM (VALUES
@@ -218,7 +242,7 @@ WITH sub_levels AS (
   ) AS t(level, rank)
 ),
 user_subs AS (
-  SELECT * FROM %s AS t(user_id, level)
+  SELECT * FROM (VALUES %s) AS t(user_id, level)
 ),
 post_with_levels AS (
   SELECT
@@ -254,7 +278,7 @@ SELECT
   ap.Description     AS "Description",   
   ap.Media::text     AS "Media",
   ap.CreatedAt       AS "CreatedAt",
-  ap.LikeNum         AS "LikeNum",        
+   ap.LikeNum        AS "LikeNum",        
   ap.Paid            AS "Paid",
   ap.SubLevel        AS "SubLevel",
   COUNT(c.Id)        AS "CommentsNum"
@@ -266,11 +290,11 @@ GROUP BY
   ap.Description,
   ap.Media,
   ap.CreatedAt,
-  ap.LikeNum,
+ap.LikeNum,
   ap.Paid,
   ap.SubLevel
 ORDER BY ap.CreatedAt DESC
-`, userSubsQuery))
+`, subArray))
 
 	posts, err := pgx.CollectRows(postsRows, pgx.RowToStructByName[models.Post])
 

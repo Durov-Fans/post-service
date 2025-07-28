@@ -18,8 +18,9 @@ import (
 
 type Post interface {
 	GetPost(ctx context.Context, postId int64, userId int64) (models.PostWithComments, error)
-	GetAllPosts(ctx context.Context, userId int64) ([]models.PostFull, error)
+	GetAllPosts(ctx context.Context, userId int64) ([]models.Post, error)
 	GetAllPostsByCreator(ctx context.Context, creatorId int64, userId int64) ([]models.Post, error)
+	Like(ctx context.Context,userId int64, postId int64)  error
 	CreateComment(ctx context.Context, postId int64, userId int64, description string) error
 }
 
@@ -63,11 +64,10 @@ func (s ServerApi) JWTMiddleware(next http.Handler) http.Handler {
 func (s *ServerApi) ConfigureRoutes() *mux.Router {
 	r := mux.NewRouter()
 	r.Use(s.JWTMiddleware)
-	apiRouter := r.PathPrefix("/api/posts").Subrouter()
-	apiRouter.HandleFunc("/post", s.GetPost).Methods("POST")
-	apiRouter.HandleFunc("/allPost", s.GetAllPost).Methods("GET")
-	apiRouter.HandleFunc("/allPostByCreator", s.GetAllPostsByCreator).Methods("POST")
-	apiRouter.HandleFunc("/createComment", s.CreateComment).Methods("POST")
+	r.HandleFunc("/post", s.GetPost).Methods("GET")
+	r.HandleFunc("/allPost", s.GetAllPost).Methods("GET")
+	r.HandleFunc("/allPostByCreator", s.GetAllPostsByCreator).Methods("GET")
+	r.HandleFunc("/createComment", s.CreateComment).Methods("POST")
 
 	return r
 }
@@ -164,6 +164,32 @@ func (s *ServerApi) GetPost(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func (s *ServerApi) Like(w http.ResponseWriter, r *http.Request) {
+	var req models.LikeRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "ошибка десериализации", http.StatusBadRequest)
+		return
+	}
+	if err := createLikeValidation(req, w); err != nil {
+		return
+	}
+	ctx := r.Context()
+	userId, err := getUserID(ctx, w)
+	if err != nil {
+		return
+	}
+
+	if err := s.services.Like(ctx, req.PostId, userId); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	return
+
+}
+
 func (s *ServerApi) GetAllPost(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	userId, err := getUserID(ctx, w)
@@ -172,7 +198,7 @@ func (s *ServerApi) GetAllPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	posts, err := s.services.GetAllPosts(ctx, userId)
-	log.Println(posts)
+
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -198,6 +224,13 @@ func getPostByCreatorValidation(req models.GetPostByCreatorRequest, w http.Respo
 	if req.CreatorId == 0 {
 		http.Error(w, "creator id обязателен", http.StatusBadRequest)
 		return fmt.Errorf("creator id обязателен")
+	}
+	return nil
+}
+func createLikeValidation(req models.LikeRequest, w http.ResponseWriter) error {
+	if req.PostId == 0 {
+		http.Error(w, "post id обязателен", http.StatusBadRequest)
+		return fmt.Errorf("post id обязателен")
 	}
 	return nil
 }

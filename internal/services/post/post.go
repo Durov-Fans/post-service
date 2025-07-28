@@ -82,6 +82,14 @@ func (p Post) CreateComment(ctx context.Context, postId int64, userId int64, des
 
 	return nil
 }
+func (p Post) Like(ctx context.Context, postId int64, userId int64) error {
+
+	if err := p.postProvider.Like(ctx, postId, userId); err != nil {
+		return err
+	}
+
+	return nil
+}
 func (p Post) GetAllPostsByCreator(ctx context.Context, creatorId int64, userId int64) ([]models.Post, error) {
 	conn, err := grpc.Dial("creator_service:50051", grpc.WithInsecure())
 	if err != nil {
@@ -201,6 +209,7 @@ type PostProvider interface {
 	GetAllPosts(ctx context.Context, subArray string) ([]models.Post, error)
 	GetAllPostsByCreator(ctx context.Context, subArray models.SubInfo) ([]models.Post, error)
 	CreateComment(ctx context.Context, postId int64, userId int64, description string) error
+	Like(ctx context.Context, userId int64, postId int64) error
 }
 
 func New(postProvider PostProvider) *Post {
