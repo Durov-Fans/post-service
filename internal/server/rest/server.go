@@ -5,19 +5,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gorilla/mux"
-	"github.com/jackc/pgx/v5"
 	"log"
 	"net/http"
 	"post-service/domains/models"
 	"post-service/internal/lib/jwt"
 	"post-service/internal/storage"
 	"strings"
+
+	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v5"
 )
 
 type Post interface {
 	GetPost(ctx context.Context, postId int64, userId int64) (models.PostWithComments, error)
-	GetAllPosts(ctx context.Context, userId int64) ([]models.Post, error)
+	GetAllPosts(ctx context.Context, userId int64) ([]models.PostFull, error)
 	GetAllPostsByCreator(ctx context.Context, creatorId int64, userId int64) ([]models.Post, error)
 	CreateComment(ctx context.Context, postId int64, userId int64, description string) error
 }
@@ -62,10 +63,11 @@ func (s ServerApi) JWTMiddleware(next http.Handler) http.Handler {
 func (s *ServerApi) ConfigureRoutes() *mux.Router {
 	r := mux.NewRouter()
 	r.Use(s.JWTMiddleware)
-	r.HandleFunc("/post", s.GetPost).Methods("GET")
-	r.HandleFunc("/allPost", s.GetAllPost).Methods("GET")
-	r.HandleFunc("/allPostByCreator", s.GetAllPostsByCreator).Methods("GET")
-	r.HandleFunc("/createComment", s.CreateComment).Methods("POST")
+	apiRouter := r.PathPrefix("/api/posts").Subrouter()
+	apiRouter.HandleFunc("/post", s.GetPost).Methods("POST")
+	apiRouter.HandleFunc("/allPost", s.GetAllPost).Methods("GET")
+	apiRouter.HandleFunc("/allPostByCreator", s.GetAllPostsByCreator).Methods("POST")
+	apiRouter.HandleFunc("/createComment", s.CreateComment).Methods("POST")
 
 	return r
 }
@@ -170,7 +172,7 @@ func (s *ServerApi) GetAllPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	posts, err := s.services.GetAllPosts(ctx, userId)
-
+	log.Println(posts)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return

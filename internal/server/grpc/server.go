@@ -51,7 +51,7 @@ func createPostValidate(req *post.CreatePostRequest) error {
 }
 
 func StartGRPCServer(postProvider PostProvider) {
-	lis, err := net.Listen("tcp", ":5003")
+	lis, err := net.Listen("tcp", ":50053")
 	if err != nil {
 		log.Fatalf("не удалось слушать порт: %v", err)
 	}

@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"log"
 	"post-service/domains/models"
+	"strings"
 	"time"
 )
 
@@ -197,7 +198,16 @@ func (s Storage) GetAllPosts(ctx context.Context, subArray string) ([]models.Pos
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
-
+	log.Println(subArray)
+	var userSubsQuery string
+	if strings.TrimSpace(subArray) == "" {
+		// Подписок нет — создаём пустую таблицу нужной структуры
+		userSubsQuery = `(SELECT NULL::bigint AS user_id, NULL::text AS level WHERE false)`
+	} else {
+		// Есть подписки — нормальный VALUES
+		userSubsQuery = fmt.Sprintf(`(VALUES %s)`, subArray)
+	}
+	log.Println(userSubsQuery)
 	postsRows, err := tx.Query(ctx, fmt.Sprintf(`
 WITH sub_levels AS (
   SELECT * FROM (VALUES
@@ -208,7 +218,7 @@ WITH sub_levels AS (
   ) AS t(level, rank)
 ),
 user_subs AS (
-  SELECT * FROM (VALUES %s) AS t(user_id, level)
+  SELECT * FROM %s AS t(user_id, level)
 ),
 post_with_levels AS (
   SELECT
@@ -244,7 +254,7 @@ SELECT
   ap.Description     AS "Description",   
   ap.Media::text     AS "Media",
   ap.CreatedAt       AS "CreatedAt",
-   ap.LikeNum        AS "LikeNum",        
+  ap.LikeNum         AS "LikeNum",        
   ap.Paid            AS "Paid",
   ap.SubLevel        AS "SubLevel",
   COUNT(c.Id)        AS "CommentsNum"
@@ -256,11 +266,11 @@ GROUP BY
   ap.Description,
   ap.Media,
   ap.CreatedAt,
-ap.LikeNum,
+  ap.LikeNum,
   ap.Paid,
   ap.SubLevel
 ORDER BY ap.CreatedAt DESC
-`, subArray))
+`, userSubsQuery))
 
 	posts, err := pgx.CollectRows(postsRows, pgx.RowToStructByName[models.Post])
 

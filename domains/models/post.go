@@ -27,7 +27,19 @@ type Post struct {
 	SubLevel    string          `json:"sub_level" sql:"SubLevel"`
 	CommentsNum int64           `json:"comments_num" sql:"CommentsNum"`
 }
-
+type PostFull struct {
+	Id          int64           `json:"id" sql:"Id"`
+	UserId      int64           `json:"user_id" sql:"UserId"`
+	UserName    string          `json:"user_name,omitempty"`
+	PhotoURL    string          `json:"photo_url,omitempty"`
+	Description string          `json:"description" sql:"description"`
+	Media       json.RawMessage `json:"media" sql:"Media"`
+	CreatedAt   time.Time       `json:"created_at" sql:"CreatedAt"`
+	LikeNum     int64           `json:"like_num" sql:"LikeNum"`
+	Paid        bool            `json:"paid" sql:"Paid"`
+	SubLevel    string          `json:"sub_level" sql:"SubLevel"`
+	CommentsNum int64           `json:"comments_num" sql:"CommentsNum"`
+}
 type GetPostRequest struct {
 	PostId int64 `json:"post_id" sql:"Id"`
 }
