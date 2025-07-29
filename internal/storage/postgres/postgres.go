@@ -3,11 +3,7 @@ package postgres
 import (
 	"context"
 	"fmt"
-	"log"
-	"post-service/domains/models"
-	"time"
 
-	"github.com/Durov-Fans/protos/gen/go/post"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"log"
@@ -19,35 +15,13 @@ type Storage struct {
 	db *pgxpool.Pool
 }
 
-func (s Storage) CreatePost(ctx context.Context, req *post.CreatePostRequest) (*post.CreatePostResponse, error) {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		log.Println("Ошибка транзакции")
-		return &post.CreatePostResponse{Success: false}, err
-	}
-	defer tx.Rollback(ctx)
-
-	_, err = tx.Exec(ctx, `INSERT INTO posts (description, userid, media,paid,sublevel, createdat)
-         VALUES ($1, $2, $3,$4,$5, NOW())`, req.GetTitle(), req.GetUserid(), req.GetMedia(), req.GetPaid(), req.GetSubLevel())
-
-	if err != nil {
-		log.Fatal("Ошибка запроса к базе данных")
-		return &post.CreatePostResponse{Success: false}, err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return &post.CreatePostResponse{Success: false}, fmt.Errorf("Ошибка комита")
-	}
-	return &post.CreatePostResponse{Success: true}, nil
-}
-func (s Storage) Like(ctx context.Context, userId int64, postId int64)  error {
+func (s Storage) Like(ctx context.Context, userId int64, postId int64) error {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		log.Println("Ошибка транзакции")
 		return err
 	}
 	defer tx.Rollback(ctx)
-
 
 	var postExist bool
 	err = tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM posts WHERE id = $1)`, postId).Scan(&postExist)
@@ -100,6 +74,29 @@ func (s Storage) CreateComment(ctx context.Context, postId int64, userId int64, 
 	}
 	return nil
 }
+
+func (s Storage) CreatePost(ctx context.Context, userId int64, media string, textData models.PostTextData) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		log.Println("Ошибка транзакции")
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Exec(ctx, `INSERT INTO posts (description, userid, media,paid,sublevel, createdat)
+         VALUES ($1, $2, $3,$4,$5, NOW())`, textData.Desc, userId, media, textData.Paid, textData.Type)
+
+	if err != nil {
+		log.Fatal("Ошибка запроса к базе данных")
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("Ошибка комита")
+	}
+	return nil
+}
+
 func (s Storage) GetPost(ctx context.Context, id int64) (models.PostWithComments, error) {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {

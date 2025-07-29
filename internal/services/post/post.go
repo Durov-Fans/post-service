@@ -2,11 +2,18 @@ package post
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	"log"
+	"net/http"
 	"post-service/domains/models"
+	"post-service/internal/lib/photo"
+	"post-service/internal/lib/uploaders"
 	"post-service/internal/storage"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Durov-Fans/protos/gen/go/creator"
@@ -16,6 +23,11 @@ import (
 type Post struct {
 	log          *log.Logger
 	postProvider PostProvider
+}
+type uploadResult struct {
+	Field string
+	URL   string
+	Err   error
 }
 
 func getLevelNum(level string) int {
@@ -82,6 +94,53 @@ func (p Post) CreateComment(ctx context.Context, postId int64, userId int64, des
 
 	return nil
 }
+
+func (p Post) CreatePost(ctx context.Context, r *http.Request, userId int64, textData models.PostTextData) error {
+	Urls := make(map[string]string)
+	client := uploaders.InitAWS()
+	PostUuid := uuid.New().String()
+	log.Println(PostUuid)
+
+	var wg sync.WaitGroup
+	results := make(chan uploadResult, 5)
+
+	fields := []string{"Photo_One", "Photo_Two", "Photo_Three", "Photo_Four", "Photo_Five"}
+
+	for _, field := range fields {
+		wg.Add(1)
+		go func(field string) {
+			defer wg.Done()
+			url, err := photo.ProcessPhoto(r, field, client, strconv.FormatInt(userId, 10), PostUuid)
+			results <- uploadResult{field, url, err}
+		}(field)
+	}
+	wg.Wait()
+	close(results)
+
+	for res := range results {
+		if res.Err != nil {
+
+			log.Println(res.Err)
+			continue
+		}
+		if res.URL != "" {
+			Urls[res.Field] = res.URL
+		}
+	}
+	mediaJson, err := json.Marshal(Urls)
+	if err != nil {
+		return err
+	}
+
+	err = p.postProvider.CreatePost(ctx, userId, string(mediaJson), textData)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (p Post) Like(ctx context.Context, postId int64, userId int64) error {
 
 	if err := p.postProvider.Like(ctx, postId, userId); err != nil {
@@ -208,6 +267,7 @@ type PostProvider interface {
 	GetPost(ctx context.Context, id int64) (models.PostWithComments, error)
 	GetAllPosts(ctx context.Context, subArray string) ([]models.Post, error)
 	GetAllPostsByCreator(ctx context.Context, subArray models.SubInfo) ([]models.Post, error)
+	CreatePost(ctx context.Context, userId int64, media string, textData models.PostTextData) error
 	CreateComment(ctx context.Context, postId int64, userId int64, description string) error
 	Like(ctx context.Context, userId int64, postId int64) error
 }
