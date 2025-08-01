@@ -3,10 +3,11 @@ package grpc
 import (
 	"context"
 	"fmt"
-	"github.com/Durov-Fans/protos/gen/go/post"
-	"google.golang.org/grpc"
 	"log"
 	"net"
+
+	"github.com/Durov-Fans/protos/gen/go/post"
+	"google.golang.org/grpc"
 )
 
 type PostGRPCServer struct {
@@ -51,7 +52,7 @@ func createPostValidate(req *post.CreatePostRequest) error {
 }
 
 func StartGRPCServer(postProvider PostProvider) {
-	lis, err := net.Listen("tcp", ":5003")
+	lis, err := net.Listen("tcp", ":50053")
 	if err != nil {
 		log.Fatalf("не удалось слушать порт: %v", err)
 	}
