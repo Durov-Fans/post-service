@@ -137,12 +137,14 @@ func (p Post) GetAllPosts(ctx context.Context, userId int64) ([]models.PostFull,
 	}
 	paidArray := convert(paidRepeat)
 
+	// Формируем параметры подписок для SQL
 	var valueParts []string
 	for _, sub := range paidArray {
 		valueParts = append(valueParts, fmt.Sprintf("(%d, '%s')", sub.Id, sub.Level))
 	}
 	userSubsValues := strings.Join(valueParts, ", ")
 
+	// Получаем посты
 	posts, err := p.postProvider.GetAllPosts(ctx, userSubsValues)
 	if err != nil {
 		log.Println("Ошибка получения постов")

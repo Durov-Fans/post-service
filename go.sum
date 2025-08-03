@@ -8,6 +8,8 @@ github.com/Durov-Fans/protos v0.2.5 h1:oOg7AcMiaGWrIG1y0L3Fiv5LMahkaXVrHwyjdHslX
 github.com/Durov-Fans/protos v0.2.5/go.mod h1:M46WObMgPIXaq6lNUjmrY1aoiovBgGO0hEQJhQf1OWA=
 github.com/Durov-Fans/protos v0.3.2 h1:YE5KppkGVHUc3r6QUw79UNVa/EDctahTSrjw4p7hbrM=
 github.com/Durov-Fans/protos v0.3.2/go.mod h1:M46WObMgPIXaq6lNUjmrY1aoiovBgGO0hEQJhQf1OWA=
+github.com/Durov-Fans/protos v0.3.7 h1:5hW0o8Bfq0+p4pdPF2zNuVMtWrbhR9zMZxLM3AeWCuk=
+github.com/Durov-Fans/protos v0.3.7/go.mod h1:M46WObMgPIXaq6lNUjmrY1aoiovBgGO0hEQJhQf1OWA=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
@@ -78,6 +80,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/rogpeppe/go-internal v1.12.0 h1:exVL4IDcn6na9z1rAb56Vxr+CgyK3nn3O+epU5NdKM8=
 github.com/rogpeppe/go-internal v1.12.0/go.mod h1:E+RYuTGaKKdloAfM02xzb0FW3Paa99yedzYV+kq4uf4=
+github.com/rs/cors v1.11.1 h1:eU3gRzXLRK57F5rKMGMZURNdIG4EoAmX8k94r9wXWHA=
+github.com/rs/cors v1.11.1/go.mod h1:XyqrcTp5zjWr1wsJ8PIRZssZ8b/WMcMf71DJnit4EMU=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
