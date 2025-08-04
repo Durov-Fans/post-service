@@ -8,6 +8,9 @@ import (
 	"post-service/internal/storage"
 	"strings"
 	"time"
+
+	"github.com/Durov-Fans/protos/gen/go/creator"
+	"google.golang.org/grpc"
 )
 
 type Post struct {

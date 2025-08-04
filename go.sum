@@ -2,12 +2,15 @@ github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 h1:L/gRVlceqvL25
 github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161/go.mod h1:xomTg63KZ2rFqZQzSB4Vz2SUXa1BpHTVz9L5PTmPC4E=
 github.com/BurntSushi/toml v1.2.1 h1:9F2/+DoOYIOksmaJFPw1tGFy1eDnIJXg+UHjuD8lTak=
 github.com/BurntSushi/toml v1.2.1/go.mod h1:CxXYINrC8qIiEnFrOxCa7Jy5BFHlXnUU2pbicEuybxQ=
+<<<<<<< HEAD
 github.com/Durov-Fans/protos v0.2.4 h1:HE4n2TSW3NC1N2dMJca19pAgGnyWDJFVKTZ7Vd7WyKo=
 github.com/Durov-Fans/protos v0.2.4/go.mod h1:M46WObMgPIXaq6lNUjmrY1aoiovBgGO0hEQJhQf1OWA=
 github.com/Durov-Fans/protos v0.2.5 h1:oOg7AcMiaGWrIG1y0L3Fiv5LMahkaXVrHwyjdHslX/U=
 github.com/Durov-Fans/protos v0.2.5/go.mod h1:M46WObMgPIXaq6lNUjmrY1aoiovBgGO0hEQJhQf1OWA=
 github.com/Durov-Fans/protos v0.3.2 h1:YE5KppkGVHUc3r6QUw79UNVa/EDctahTSrjw4p7hbrM=
 github.com/Durov-Fans/protos v0.3.2/go.mod h1:M46WObMgPIXaq6lNUjmrY1aoiovBgGO0hEQJhQf1OWA=
+=======
+>>>>>>> c0093c3103a74d36fe09ecf7e78d4768967aec0f
 github.com/Durov-Fans/protos v0.3.7 h1:5hW0o8Bfq0+p4pdPF2zNuVMtWrbhR9zMZxLM3AeWCuk=
 github.com/Durov-Fans/protos v0.3.7/go.mod h1:M46WObMgPIXaq6lNUjmrY1aoiovBgGO0hEQJhQf1OWA=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
@@ -86,8 +89,11 @@ github.com/rogpeppe/go-internal v1.12.0 h1:exVL4IDcn6na9z1rAb56Vxr+CgyK3nn3O+epU
 github.com/rogpeppe/go-internal v1.12.0/go.mod h1:E+RYuTGaKKdloAfM02xzb0FW3Paa99yedzYV+kq4uf4=
 github.com/rs/cors v1.11.1 h1:eU3gRzXLRK57F5rKMGMZURNdIG4EoAmX8k94r9wXWHA=
 github.com/rs/cors v1.11.1/go.mod h1:XyqrcTp5zjWr1wsJ8PIRZssZ8b/WMcMf71DJnit4EMU=
+<<<<<<< HEAD
 github.com/rs/cors v1.11.1 h1:eU3gRzXLRK57F5rKMGMZURNdIG4EoAmX8k94r9wXWHA=
 github.com/rs/cors v1.11.1/go.mod h1:XyqrcTp5zjWr1wsJ8PIRZssZ8b/WMcMf71DJnit4EMU=
+=======
+>>>>>>> c0093c3103a74d36fe09ecf7e78d4768967aec0f
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=

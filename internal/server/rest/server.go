@@ -11,6 +11,10 @@ import (
 	"post-service/internal/lib/jwt"
 	"post-service/internal/storage"
 	"strings"
+
+	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v5"
+	"github.com/rs/cors"
 )
 
 type Post interface {
@@ -62,11 +66,24 @@ func (s ServerApi) JWTMiddleware(next http.Handler) http.Handler {
 func (s *ServerApi) ConfigureRoutes() *mux.Router {
 	r := mux.NewRouter()
 	r.Use(s.JWTMiddleware)
-	r.HandleFunc("/post", s.GetPost).Methods("GET")
-	r.HandleFunc("/allPost", s.GetAllPost).Methods("GET")
-	r.HandleFunc("/allPostByCreator", s.GetAllPostsByCreator).Methods("GET")
-	r.HandleFunc("/createComment", s.CreateComment).Methods("POST")
+	apiRouter := r.PathPrefix("/api/posts").Subrouter()
+	apiRouter.HandleFunc("/post", s.GetPost).Methods("POST")
+	apiRouter.HandleFunc("/allPost", s.GetAllPost).Methods("GET")
+	apiRouter.HandleFunc("/allPostByCreator", s.GetAllPostsByCreator).Methods("POST")
+	apiRouter.HandleFunc("/createComment", s.CreateComment).Methods("POST")
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{"https://*", "http://*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: false,
+		MaxAge:           300,
+	})
 
+	// подключаем как middleware
+	r.Use(func(next http.Handler) http.Handler {
+		return c.Handler(next)
+	})
 	return r
 }
 

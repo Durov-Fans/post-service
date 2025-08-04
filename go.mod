@@ -15,8 +15,11 @@ require (
 
 require (
 	github.com/BurntSushi/toml v1.2.1 // indirect
+<<<<<<< HEAD
 	github.com/Durov-Fans/protos v0.3.7 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.3 // indirect
+=======
+>>>>>>> c0093c3103a74d36fe09ecf7e78d4768967aec0f
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
