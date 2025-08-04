@@ -1,6 +1,6 @@
 env: "local"
 database_url: "postgres://postgres:postgres@localhost:5444/postgres?sslmode=disable"
 rest:
-  port: ":8081"
+  port: ":3000"
 jwt:
   secret: "4918d1442c2da0f986a6be49fde103ba3876c457de751020d187ff550e9d3ac7d3210dc7"
