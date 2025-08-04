@@ -11,10 +11,9 @@ import (
 	"post-service/internal/lib/jwt"
 	"post-service/internal/storage"
 	"strings"
-
+	"github.com/rs/cors"
 	"github.com/gorilla/mux"
 	"github.com/jackc/pgx/v5"
-	"github.com/rs/cors"
 )
 
 type Post interface {
@@ -30,13 +29,17 @@ type ServerApi struct {
 	secret   string
 }
 
-func NewServer(services Post, port string, secret string) *ServerApi {
-	api := ServerApi{
+func NewServer(services Post, port string, secret string) *http.Server {
+	api := &ServerApi{
 		services: services,
 		port:     port,
 		secret:   secret,
 	}
-	return &api
+	route := api.ConfigureRoutes()
+	return &http.Server{
+		Addr:    api.port,
+		Handler: route,
+	}
 }
 func (s ServerApi) JWTMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -68,7 +71,8 @@ func (s *ServerApi) ConfigureRoutes() *mux.Router {
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"https://*", "http://*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		AllowedHeaders
+:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: false,
 		MaxAge:           300,
