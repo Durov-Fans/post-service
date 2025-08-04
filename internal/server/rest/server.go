@@ -18,9 +18,9 @@ import (
 
 type Post interface {
 	GetPost(ctx context.Context, postId int64, userId int64) (models.PostWithComments, error)
-	GetAllPosts(ctx context.Context, userId int64) ([]models.Post, error)
+	GetAllPosts(ctx context.Context, userId int64) ([]models.PostFull, error)
 	GetAllPostsByCreator(ctx context.Context, creatorId int64, userId int64) ([]models.Post, error)
-	Like(ctx context.Context,userId int64, postId int64)  error
+	Like(ctx context.Context, userId int64, postId int64) error
 	CreateComment(ctx context.Context, postId int64, userId int64, description string) error
 }
 

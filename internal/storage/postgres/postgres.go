@@ -3,9 +3,6 @@ package postgres
 import (
 	"context"
 	"fmt"
-	"log"
-	"post-service/domains/models"
-	"time"
 
 	"github.com/Durov-Fans/protos/gen/go/post"
 	"github.com/jackc/pgx/v5"
@@ -40,14 +37,13 @@ func (s Storage) CreatePost(ctx context.Context, req *post.CreatePostRequest) (*
 	}
 	return &post.CreatePostResponse{Success: true}, nil
 }
-func (s Storage) Like(ctx context.Context, userId int64, postId int64)  error {
+func (s Storage) Like(ctx context.Context, userId int64, postId int64) error {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		log.Println("Ошибка транзакции")
 		return err
 	}
 	defer tx.Rollback(ctx)
-
 
 	var postExist bool
 	err = tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM posts WHERE id = $1)`, postId).Scan(&postExist)
@@ -290,7 +286,7 @@ GROUP BY
   ap.Description,
   ap.Media,
   ap.CreatedAt,
-ap.LikeNum,
+  ap.LikeNum,
   ap.Paid,
   ap.SubLevel
 ORDER BY ap.CreatedAt DESC
