@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"post-service/internal/lib/jwt"
 	"post-service/internal/server/rest"
 	"post-service/internal/services/post"
 	"time"
@@ -16,8 +15,8 @@ type RestApp struct {
 	port   string
 }
 
-func NewRestApp(postService *post.Post, port string, jwt *jwt.JWT) *RestApp {
-	server := rest.NewServer(*postService, port, jwt)
+func NewRestApp(postService *post.Post, port string, secret string) *RestApp {
+	server := rest.NewServer(*postService, port, secret)
 
 	return &RestApp{
 		server: server,

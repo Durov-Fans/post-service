@@ -6,7 +6,6 @@ import (
 	"os/signal"
 	"post-service/internal/app"
 	"post-service/internal/config"
-	"post-service/internal/lib/jwt"
 	"syscall"
 )
 
@@ -15,9 +14,7 @@ func main() {
 
 	log.Printf("Config: %v", cfg)
 
-	jwt := jwt.NewJWT(cfg.JWT.Secret)
-
-	application := app.New(cfg.Server.Port, cfg.DatabaseUrl, jwt)
+	application := app.New(cfg.Server.Port, cfg.DatabaseUrl, cfg.JWT.Secret)
 
 	application.RestApp.MustRun()
 

@@ -2,7 +2,6 @@ package models
 
 import (
 	"encoding/json"
-	"mime/multipart"
 	"time"
 )
 
@@ -48,20 +47,10 @@ type GetPostByCreatorRequest struct {
 	CreatorId int64 `json:"creator_id" sql:"Id"`
 }
 type CreatePostRequest struct {
-	Userid      int64  `json:"userid" sql:"UserId"`
 	Description string `json:"description" sql:"description"`
 	Media       string `json:"media" sql:"media"`
 	Paid        bool   `json:"paid" sql:"paid"`
 	SubLevel    string `json:"sub_Level" sql:"sub_level"`
-}
-type FileData struct {
-	File   multipart.File
-	Header *multipart.FileHeader
-}
-type PostTextData struct {
-	Desc string
-	Paid bool
-	Type string
 }
 
 //type GetPostResponse struct {
