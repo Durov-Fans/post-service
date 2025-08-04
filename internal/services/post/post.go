@@ -3,14 +3,11 @@ package post
 import (
 	"context"
 	"fmt"
-	"github.com/Durov-Fans/protos/gen/go/creator"
-	"google.golang.org/grpc"
 	"log"
 	"post-service/domains/models"
 	"post-service/internal/storage"
 	"strings"
 	"time"
-
 )
 
 type Post struct {
@@ -137,12 +134,14 @@ func (p Post) GetAllPosts(ctx context.Context, userId int64) ([]models.PostFull,
 	}
 	paidArray := convert(paidRepeat)
 
+	// Формируем параметры подписок для SQL
 	var valueParts []string
 	for _, sub := range paidArray {
 		valueParts = append(valueParts, fmt.Sprintf("(%d, '%s')", sub.Id, sub.Level))
 	}
 	userSubsValues := strings.Join(valueParts, ", ")
 
+	// Получаем посты
 	posts, err := p.postProvider.GetAllPosts(ctx, userSubsValues)
 	if err != nil {
 		log.Println("Ошибка получения постов")
@@ -198,9 +197,10 @@ type PostProvider interface {
 	GetPost(ctx context.Context, id int64) (models.PostWithComments, error)
 	GetAllPosts(ctx context.Context, subArray string) ([]models.Post, error)
 	GetAllPostsByCreator(ctx context.Context, subArray models.SubInfo) ([]models.Post, error)
+	CreatePost(ctx context.Context, userId int64, media string, textData models.PostTextData) error
 	CreateComment(ctx context.Context, postId int64, userId int64, description string) error
+	Like(ctx context.Context, userId int64, postId int64) error
 }
-
 func New(postProvider PostProvider) *Post {
 	return &Post{
 		postProvider: postProvider,

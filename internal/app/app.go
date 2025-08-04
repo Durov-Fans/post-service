@@ -2,7 +2,7 @@ package app
 
 import (
 	"post-service/internal/app/rest"
-	"post-service/internal/server/grpc"
+	"post-service/internal/lib/jwt"
 	"post-service/internal/services/post"
 	"post-service/internal/storage/postgres"
 )
@@ -11,7 +11,7 @@ type App struct {
 	RestApp rest.RestApp
 }
 
-func New(port string, storageUrl string, secret string) *App {
+func New(port string, storageUrl string, jwt *jwt.JWT) *App {
 
 	storage, err := postgres.InitDB(storageUrl)
 	if err != nil {
@@ -20,8 +20,7 @@ func New(port string, storageUrl string, secret string) *App {
 
 	postService := post.New(storage)
 
-	postApp := rest.NewRestApp(postService, port, secret)
-	go grpc.StartGRPCServer(storage)
+	postApp := rest.NewRestApp(postService, port, jwt)
 	return &App{
 		RestApp: *postApp,
 	}
