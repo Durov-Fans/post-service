@@ -5,21 +5,22 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gorilla/mux"
+	"github.com/jackc/pgx/v5"
+	"github.com/rs/cors"
 	"log"
 	"net/http"
 	"post-service/domains/models"
 	"post-service/internal/lib/jwt"
 	"post-service/internal/storage"
-	"strings"
-
-	"github.com/gorilla/mux"
-	"github.com/jackc/pgx/v5"
+	"strconv"
 )
 
 type Post interface {
 	GetPost(ctx context.Context, postId int64, userId int64) (models.PostWithComments, error)
 	GetAllPosts(ctx context.Context, userId int64) ([]models.PostFull, error)
 	GetAllPostsByCreator(ctx context.Context, creatorId int64, userId int64) ([]models.Post, error)
+	CreatePost(ctx context.Context, r *http.Request, userId int64, textData models.PostTextData) error
 	Like(ctx context.Context, userId int64, postId int64) error
 	CreateComment(ctx context.Context, postId int64, userId int64, description string) error
 }
@@ -27,48 +28,40 @@ type Post interface {
 type ServerApi struct {
 	services Post
 	port     string
-	secret   string
+	jwt      *jwt.JWT
 }
 
-func NewServer(services Post, port string, secret string) *http.Server {
-	api := &ServerApi{
+func New(services Post, port string, jwt *jwt.JWT) *ServerApi {
+	api := ServerApi{
 		services: services,
 		port:     port,
-		secret:   secret,
+		jwt:      jwt,
 	}
-	route := api.ConfigureRoutes()
-	return &http.Server{
-		Addr:    api.port,
-		Handler: route,
-	}
-}
-func (s ServerApi) JWTMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		header := r.Header.Get("Authorization")
-		if !strings.HasPrefix(header, "Bearer ") {
-			http.Error(w, "Missing or invalid token", http.StatusUnauthorized)
-			return
-		}
-		tokenStr := strings.TrimPrefix(header, "Bearer ")
-		userID, err := jwt.ValidateToken(tokenStr, s.secret)
-		if err != nil {
-			http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
-			return
-		}
-		ctx := context.WithValue(r.Context(), "userID", userID)
-		log.Println(ctx)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
+	return &api
 }
 
 func (s *ServerApi) ConfigureRoutes() *mux.Router {
 	r := mux.NewRouter()
-	r.Use(s.JWTMiddleware)
-	r.HandleFunc("/post", s.GetPost).Methods("GET")
-	r.HandleFunc("/allPost", s.GetAllPost).Methods("GET")
-	r.HandleFunc("/allPostByCreator", s.GetAllPostsByCreator).Methods("GET")
-	r.HandleFunc("/createComment", s.CreateComment).Methods("POST")
+	r.Use(s.jwt.JWTMiddleware)
 
+	apiRouter := r.PathPrefix("/posts").Subrouter()
+	apiRouter.HandleFunc("/post/{id}", s.GetPost).Methods("GET")
+	apiRouter.HandleFunc("/allPost", s.GetAllPost).Methods("GET")
+	apiRouter.HandleFunc("/allPostByCreator/{id}", s.GetAllPostsByCreator).Methods("GET")
+	apiRouter.HandleFunc("/createComment", s.CreateComment).Methods("POST")
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{"https://*", "http://*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: false,
+		MaxAge:           300,
+	})
+
+	// подключаем как middleware
+	r.Use(func(next http.Handler) http.Handler {
+		return c.Handler(next)
+	})
 	return r
 }
 
@@ -98,13 +91,8 @@ func (s *ServerApi) CreateComment(w http.ResponseWriter, r *http.Request) {
 	return
 }
 func (s *ServerApi) GetAllPostsByCreator(w http.ResponseWriter, r *http.Request) {
-	var req models.GetPostByCreatorRequest
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "ошибка десериализации", http.StatusBadRequest)
-		return
-	}
-	if err := getPostByCreatorValidation(req, w); err != nil {
+	id, err := getId(r, w)
+	if err != nil {
 		return
 	}
 	ctx := r.Context()
@@ -112,7 +100,7 @@ func (s *ServerApi) GetAllPostsByCreator(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		return
 	}
-	posts, err := s.services.GetAllPostsByCreator(ctx, req.CreatorId, userId)
+	posts, err := s.services.GetAllPostsByCreator(ctx, id, userId)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -127,13 +115,8 @@ func (s *ServerApi) GetAllPostsByCreator(w http.ResponseWriter, r *http.Request)
 	}
 }
 func (s *ServerApi) GetPost(w http.ResponseWriter, r *http.Request) {
-	var req models.GetPostRequest
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "ошибка десериализации", http.StatusBadRequest)
-		return
-	}
-	if err := getPostValidation(req, w); err != nil {
+	id, err := getId(r, w)
+	if err != nil {
 		return
 	}
 	ctx := r.Context()
@@ -142,7 +125,7 @@ func (s *ServerApi) GetPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	post, err := s.services.GetPost(ctx, req.PostId, userId)
+	post, err := s.services.GetPost(ctx, id, userId)
 	if err != nil {
 
 		if errors.Is(err, pgx.ErrNoRows) || errors.As(err, &storage.ErrPostNotFound) {
@@ -163,7 +146,6 @@ func (s *ServerApi) GetPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 }
-
 func (s *ServerApi) Like(w http.ResponseWriter, r *http.Request) {
 	var req models.LikeRequest
 
@@ -189,7 +171,6 @@ func (s *ServerApi) Like(w http.ResponseWriter, r *http.Request) {
 	return
 
 }
-
 func (s *ServerApi) GetAllPost(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	userId, err := getUserID(ctx, w)
@@ -198,7 +179,7 @@ func (s *ServerApi) GetAllPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	posts, err := s.services.GetAllPosts(ctx, userId)
-
+	log.Println(posts)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -212,14 +193,42 @@ func (s *ServerApi) GetAllPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
-func getPostValidation(req models.GetPostRequest, w http.ResponseWriter) error {
-	if req.PostId == 0 {
-		http.Error(w, "post id обязателен", http.StatusBadRequest)
-		return fmt.Errorf("post id обязателен")
+func getId(r *http.Request, w http.ResponseWriter) (int64, error) {
+	vars := mux.Vars(r)
+	idStr := vars["id"]
+	postId, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid user_id", http.StatusBadRequest)
+		return 0, fmt.Errorf("post id обязателен")
 	}
-	return nil
+	if postId == 0 {
+		http.Error(w, "post id обязателен", http.StatusBadRequest)
+		return 0, fmt.Errorf("post id обязателен")
+	}
+	return postId, nil
 }
-
+func createPostValidation(r *http.Request) models.PostTextData {
+	var Desc string
+	var Paid bool
+	var Type string
+	if r.FormValue("Desc") == "" {
+		Desc = ""
+	} else {
+		Desc = r.FormValue("Desc")
+	}
+	if r.FormValue("Type") != "None" && r.FormValue("Type") != "Supporter" && r.FormValue("Type") != "Premium" && r.FormValue("Type") != "Exclusive" {
+		Type = "None"
+		Paid = false
+	} else {
+		Type = r.FormValue("Type")
+		Paid = true
+	}
+	return models.PostTextData{
+		Desc: Desc,
+		Paid: Paid,
+		Type: Type,
+	}
+}
 func getPostByCreatorValidation(req models.GetPostByCreatorRequest, w http.ResponseWriter) error {
 	if req.CreatorId == 0 {
 		http.Error(w, "creator id обязателен", http.StatusBadRequest)

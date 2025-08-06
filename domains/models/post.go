@@ -2,12 +2,15 @@ package models
 
 import (
 	"encoding/json"
+	"mime/multipart"
 	"time"
 )
 
 type PostWithComments struct {
 	Id          int64           `json:"id" sql:"Id"`
 	UserId      int64           `json:"user_id" sql:"UserId"`
+	UserName    string          `json:"user_name,omitempty"`
+	PhotoURL    string          `json:"photo_url,omitempty"`
 	Description string          `json:"description" sql:"description"`
 	Media       json.RawMessage `json:"media" sql:"Media"`
 	CreatedAt   time.Time       `json:"created_at" sql:"CreatedAt"`
@@ -47,10 +50,25 @@ type GetPostByCreatorRequest struct {
 	CreatorId int64 `json:"creator_id" sql:"Id"`
 }
 type CreatePostRequest struct {
+	Userid      int64  `json:"userid" sql:"UserId"`
 	Description string `json:"description" sql:"description"`
 	Media       string `json:"media" sql:"media"`
 	Paid        bool   `json:"paid" sql:"paid"`
 	SubLevel    string `json:"sub_Level" sql:"sub_level"`
+}
+type FileData struct {
+	File   multipart.File
+	Header *multipart.FileHeader
+}
+type PostTextData struct {
+	Desc string
+	Paid bool
+	Type string
+}
+type UploadResult struct {
+	Field string
+	URL   string
+	Err   error
 }
 
 //type GetPostResponse struct {

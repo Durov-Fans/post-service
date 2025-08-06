@@ -3,40 +3,19 @@ package postgres
 import (
 	"context"
 	"fmt"
-
-	"github.com/Durov-Fans/protos/gen/go/post"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"log"
 	"post-service/domains/models"
+	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Storage struct {
 	db *pgxpool.Pool
 }
 
-func (s Storage) CreatePost(ctx context.Context, req *post.CreatePostRequest) (*post.CreatePostResponse, error) {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		log.Println("Ошибка транзакции")
-		return &post.CreatePostResponse{Success: false}, err
-	}
-	defer tx.Rollback(ctx)
-
-	_, err = tx.Exec(ctx, `INSERT INTO posts (description, userid, media,paid,sublevel, createdat)
-         VALUES ($1, $2, $3,$4,$5, NOW())`, req.GetTitle(), req.GetUserid(), req.GetMedia(), req.GetPaid(), req.GetSubLevel())
-
-	if err != nil {
-		log.Fatal("Ошибка запроса к базе данных")
-		return &post.CreatePostResponse{Success: false}, err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return &post.CreatePostResponse{Success: false}, fmt.Errorf("Ошибка комита")
-	}
-	return &post.CreatePostResponse{Success: true}, nil
-}
 func (s Storage) Like(ctx context.Context, userId int64, postId int64) error {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
@@ -55,6 +34,27 @@ func (s Storage) Like(ctx context.Context, userId int64, postId int64) error {
 
 	_, err = tx.Exec(ctx, `INSERT INTO posts ( userid, postid)
          VALUES ($1, $2)`, userId, postId)
+
+	if err != nil {
+		log.Fatal("Ошибка запроса к базе данных")
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("Ошибка комита")
+	}
+	return nil
+}
+func (s Storage) CreatePost(ctx context.Context, userId int64, media string, textData models.PostTextData) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		log.Println("Ошибка транзакции")
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	_, err = tx.Exec(ctx, `INSERT INTO posts (description, userid, media,paid,sublevel, createdat)
+         VALUES ($1, $2, $3,$4,$5, NOW())`, textData.Desc, userId, media, textData.Paid, textData.Type)
 
 	if err != nil {
 		log.Fatal("Ошибка запроса к базе данных")
@@ -141,7 +141,6 @@ func (s Storage) GetPost(ctx context.Context, id int64) (models.PostWithComments
 		log.Println(err)
 		return models.PostWithComments{}, err
 	}
-	log.Println("posts:", findPost)
 
 	if err := tx.Commit(ctx); err != nil {
 		return models.PostWithComments{}, fmt.Errorf("Ошибка комита")
@@ -155,7 +154,8 @@ func (s Storage) GetAllPostsByCreator(ctx context.Context, subArray models.SubIn
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
-	postsRows, err := tx.Query(ctx, `WITH sub_levels AS (
+	postsRows, err := tx.Query(ctx, `
+WITH sub_levels AS (
   SELECT * FROM (VALUES
     ('None', 0),
     ('Supporter', 1),
@@ -227,6 +227,17 @@ func (s Storage) GetAllPosts(ctx context.Context, subArray string) ([]models.Pos
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
+	log.Println(subArray)
+	var userSubsQuery string
+	if strings.TrimSpace(subArray) == "" {
+		// Подписок нет — создаём пустую таблицу нужной структуры
+		userSubsQuery = `(SELECT NULL::bigint AS user_id, NULL::text AS level WHERE false)`
+	} else {
+		// Есть подписки — нормальный VALUES
+		userSubsQuery = fmt.Sprintf(`(VALUES %s)`, subArray)
+	}
+	log.Println(userSubsQuery)
+	log.Println(subArray)
 
 	postsRows, err := tx.Query(ctx, fmt.Sprintf(`
 WITH sub_levels AS (
@@ -238,7 +249,7 @@ WITH sub_levels AS (
   ) AS t(level, rank)
 ),
 user_subs AS (
-  SELECT * FROM (VALUES %s) AS t(user_id, level)
+  SELECT * FROM %s AS t(user_id, level)
 ),
 post_with_levels AS (
   SELECT
@@ -274,7 +285,7 @@ SELECT
   ap.Description     AS "Description",   
   ap.Media::text     AS "Media",
   ap.CreatedAt       AS "CreatedAt",
-   ap.LikeNum        AS "LikeNum",        
+  ap.LikeNum         AS "LikeNum",        
   ap.Paid            AS "Paid",
   ap.SubLevel        AS "SubLevel",
   COUNT(c.Id)        AS "CommentsNum"
@@ -290,7 +301,7 @@ GROUP BY
   ap.Paid,
   ap.SubLevel
 ORDER BY ap.CreatedAt DESC
-`, subArray))
+`, userSubsQuery))
 
 	posts, err := pgx.CollectRows(postsRows, pgx.RowToStructByName[models.Post])
 
