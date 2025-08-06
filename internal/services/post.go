@@ -1,13 +1,20 @@
-package post
+package services
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
+	"google.golang.org/grpc/credentials/insecure"
 	"log"
+	"net/http"
 	"post-service/domains/models"
+	"post-service/internal/lib/photo"
+	"post-service/internal/lib/uploaders"
 	"post-service/internal/storage"
+	"strconv"
 	"strings"
-	"time"
+	"sync"
 
 	"github.com/Durov-Fans/protos/gen/go/creator"
 	"google.golang.org/grpc"
@@ -41,37 +48,113 @@ func convert(resp *creator.GetTierAndCreatorIdResponse) []models.SubInfo {
 	return result
 }
 func (p Post) GetPost(ctx context.Context, postId int64, userId int64) (models.PostWithComments, error) {
-	conn, err := grpc.Dial("creator_service:50051", grpc.WithInsecure())
+	conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Println("failed to connect to user service: %v", err)
 	}
 	defer conn.Close()
 	client := creator.NewCreatorServiceClient(conn)
-	grpcCtx, cancel := context.WithTimeout(context.Background(), time.Second*3)
-	defer cancel()
-	paidRepeat, err := client.GetTierAndCreatorId(grpcCtx, &creator.GetTierAndCreatorIdRequest{UserId: 1})
+	paidRepeat, err := client.GetTierAndCreatorId(ctx, &creator.GetTierAndCreatorIdRequest{UserId: userId})
 	if err != nil {
 		log.Println("Ошибка получения подписок")
 		return models.PostWithComments{}, err
 	}
 	paidArray := convert(paidRepeat)
 	postFind, err := p.postProvider.GetPost(ctx, postId)
+	userResp, err := client.GetUserInfos(ctx, &creator.GetUserInfosRequest{
+		UserIds: []int64{postFind.UserId},
+	})
 	if err != nil {
 		return models.PostWithComments{}, err
 	}
-	for _, sub := range paidArray {
-		if sub.Id == postFind.UserId {
-			currentLevelNum := getLevelNum(sub.Level)
-			postLevelNum := getLevelNum(postFind.SubLevel)
+	if len(paidArray) > 0 {
+		for _, sub := range paidArray {
+			if sub.Id == postFind.UserId && !postFind.Paid {
+				currentLevelNum := getLevelNum(sub.Level)
+				postLevelNum := getLevelNum(postFind.SubLevel)
 
-			if !postFind.Paid || currentLevelNum >= postLevelNum && currentLevelNum > 0 && postLevelNum > 0 {
-				return postFind, nil
+				if !postFind.Paid || currentLevelNum >= postLevelNum && currentLevelNum > 0 && postLevelNum > 0 {
+					return models.PostWithComments{
+						UserId:      postFind.UserId,
+						UserName:    userResp.Users[0].Username,
+						PhotoURL:    userResp.Users[0].AvatarUrl,
+						CreatedAt:   postFind.CreatedAt,
+						Description: postFind.Description,
+						Id:          postFind.Id,
+						Media:       postFind.Media,
+						Paid:        postFind.Paid,
+						LikeNum:     postFind.LikeNum,
+						Comments:    postFind.Comments,
+						SubLevel:    postFind.SubLevel,
+					}, nil
+				}
+			} else {
+				return models.PostWithComments{}, storage.ErrPostNotFound
 			}
-		} else {
-			return models.PostWithComments{}, storage.ErrPostNotFound
+		}
+	} else {
+		if !postFind.Paid {
+			return models.PostWithComments{
+				UserId:      postFind.UserId,
+				UserName:    userResp.Users[0].Username,
+				PhotoURL:    userResp.Users[0].AvatarUrl,
+				CreatedAt:   postFind.CreatedAt,
+				Description: postFind.Description,
+				Id:          postFind.Id,
+				Media:       postFind.Media,
+				Paid:        postFind.Paid,
+				LikeNum:     postFind.LikeNum,
+				Comments:    postFind.Comments,
+				SubLevel:    postFind.SubLevel,
+			}, nil
 		}
 	}
 	return models.PostWithComments{}, storage.ErrPostNotFound
+}
+func (p Post) CreatePost(ctx context.Context, r *http.Request, userId int64, textData models.PostTextData) error {
+	Urls := make(map[string]string)
+	client := uploaders.InitAWS()
+	PostUuid := uuid.New().String()
+	log.Println(PostUuid)
+
+	var wg sync.WaitGroup
+	results := make(chan models.UploadResult, 5)
+
+	fields := []string{"Photo_One", "Photo_Two", "Photo_Three", "Photo_Four", "Photo_Five"}
+
+	for _, field := range fields {
+		wg.Add(1)
+		go func(field string) {
+			defer wg.Done()
+			url, err := photo.ProcessPhoto(r, field, client, strconv.FormatInt(userId, 10), PostUuid)
+			results <- models.UploadResult{field, url, err}
+		}(field)
+	}
+	wg.Wait()
+	close(results)
+
+	for res := range results {
+		if res.Err != nil {
+
+			log.Println(res.Err)
+			continue
+		}
+		if res.URL != "" {
+			Urls[res.Field] = res.URL
+		}
+	}
+	mediaJson, err := json.Marshal(Urls)
+	if err != nil {
+		return err
+	}
+
+	err = p.postProvider.CreatePost(ctx, userId, string(mediaJson), textData)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 func (p Post) CreateComment(ctx context.Context, postId int64, userId int64, description string) error {
 
@@ -82,8 +165,16 @@ func (p Post) CreateComment(ctx context.Context, postId int64, userId int64, des
 
 	return nil
 }
+func (p Post) Like(ctx context.Context, postId int64, userId int64) error {
+
+	if err := p.postProvider.Like(ctx, postId, userId); err != nil {
+		return err
+	}
+
+	return nil
+}
 func (p Post) GetAllPostsByCreator(ctx context.Context, creatorId int64, userId int64) ([]models.Post, error) {
-	conn, err := grpc.Dial("creator_service:50051", grpc.WithInsecure())
+	conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 
 		log.Println("failed to connect to user service: %v", err)
@@ -91,9 +182,7 @@ func (p Post) GetAllPostsByCreator(ctx context.Context, creatorId int64, userId 
 	}
 	defer conn.Close()
 	client := creator.NewCreatorServiceClient(conn)
-	grpcCtx, cancel := context.WithTimeout(context.Background(), time.Second*3)
-	defer cancel()
-	paidRepeat, err := client.GetTierAndCreatorId(grpcCtx, &creator.GetTierAndCreatorIdRequest{UserId: 1})
+	paidRepeat, err := client.GetTierAndCreatorId(ctx, &creator.GetTierAndCreatorIdRequest{UserId: 1})
 	if err != nil {
 		log.Println("Ошибка получения подписок")
 		return nil, err
@@ -117,8 +206,8 @@ func (p Post) GetAllPostsByCreator(ctx context.Context, creatorId int64, userId 
 }
 
 func (p Post) GetAllPosts(ctx context.Context, userId int64) ([]models.PostFull, error) {
-	// Подключение к creator_service
-	conn, err := grpc.Dial("creator_service:50051", grpc.WithInsecure())
+	// Подключение к localhost
+	conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Println("failed to connect to creator service: %v", err)
 		return nil, err
@@ -126,11 +215,9 @@ func (p Post) GetAllPosts(ctx context.Context, userId int64) ([]models.PostFull,
 	defer conn.Close()
 
 	client := creator.NewCreatorServiceClient(conn)
-	grpcCtx, cancel := context.WithTimeout(context.Background(), time.Second*3)
-	defer cancel()
 
 	// Получение подписок
-	paidRepeat, err := client.GetTierAndCreatorId(grpcCtx, &creator.GetTierAndCreatorIdRequest{UserId: userId})
+	paidRepeat, err := client.GetTierAndCreatorId(ctx, &creator.GetTierAndCreatorIdRequest{UserId: userId})
 	if err != nil {
 		log.Println("Ошибка получения подписок")
 		return nil, err
@@ -161,7 +248,7 @@ func (p Post) GetAllPosts(ctx context.Context, userId int64) ([]models.PostFull,
 	for id := range userIdMap {
 		userIds = append(userIds, id)
 	}
-	userResp, err := client.GetUserInfos(grpcCtx, &creator.GetUserInfosRequest{
+	userResp, err := client.GetUserInfos(ctx, &creator.GetUserInfosRequest{
 		UserIds: userIds,
 	})
 
@@ -204,6 +291,7 @@ type PostProvider interface {
 	CreateComment(ctx context.Context, postId int64, userId int64, description string) error
 	Like(ctx context.Context, userId int64, postId int64) error
 }
+
 func New(postProvider PostProvider) *Post {
 	return &Post{
 		postProvider: postProvider,

@@ -3,7 +3,7 @@ package app
 import (
 	"post-service/internal/app/rest"
 	"post-service/internal/lib/jwt"
-	"post-service/internal/services/post"
+	"post-service/internal/services"
 	"post-service/internal/storage/postgres"
 )
 
@@ -18,9 +18,9 @@ func New(port string, storageUrl string, jwt *jwt.JWT) *App {
 		panic(err)
 	}
 
-	postService := post.New(storage)
+	postService := services.New(storage)
 
-	postApp := rest.NewRestApp(postService, port, jwt)
+	postApp := rest.New(postService, port, jwt)
 	return &App{
 		RestApp: *postApp,
 	}

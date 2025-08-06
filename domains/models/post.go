@@ -9,6 +9,8 @@ import (
 type PostWithComments struct {
 	Id          int64           `json:"id" sql:"Id"`
 	UserId      int64           `json:"user_id" sql:"UserId"`
+	UserName    string          `json:"user_name,omitempty"`
+	PhotoURL    string          `json:"photo_url,omitempty"`
 	Description string          `json:"description" sql:"description"`
 	Media       json.RawMessage `json:"media" sql:"Media"`
 	CreatedAt   time.Time       `json:"created_at" sql:"CreatedAt"`
@@ -62,6 +64,11 @@ type PostTextData struct {
 	Desc string
 	Paid bool
 	Type string
+}
+type UploadResult struct {
+	Field string
+	URL   string
+	Err   error
 }
 
 //type GetPostResponse struct {

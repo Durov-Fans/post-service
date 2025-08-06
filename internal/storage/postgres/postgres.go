@@ -56,7 +56,6 @@ func (s Storage) CreatePost(ctx context.Context, userId int64, media string, tex
 
 	_, err = tx.Exec(ctx, `INSERT INTO posts (description, userid, media,paid,sublevel, createdat)
          VALUES ($1, $2, $3,$4,$5, NOW())`, textData.Desc, userId, media, textData.Paid, textData.Type)
-         VALUES ($1, $2, $3,$4,$5, NOW())`, textData.Desc, userId, media, textData.Paid, textData.Type)
 
 	if err != nil {
 		log.Fatal("Ошибка запроса к базе данных")
@@ -71,7 +70,6 @@ func (s Storage) CreatePost(ctx context.Context, userId int64, media string, tex
 	return nil
 	return nil
 }
-
 
 func (s Storage) CreateComment(ctx context.Context, postId int64, userId int64, description string) error {
 	tx, err := s.db.Begin(ctx)
@@ -147,7 +145,6 @@ func (s Storage) GetPost(ctx context.Context, id int64) (models.PostWithComments
 		log.Println(err)
 		return models.PostWithComments{}, err
 	}
-	log.Println("posts:", findPost)
 
 	if err := tx.Commit(ctx); err != nil {
 		return models.PostWithComments{}, fmt.Errorf("Ошибка комита")
@@ -245,15 +242,7 @@ func (s Storage) GetAllPosts(ctx context.Context, subArray string) ([]models.Pos
 	}
 	log.Println(userSubsQuery)
 	log.Println(subArray)
-	var userSubsQuery string
-	if strings.TrimSpace(subArray) == "" {
-		// Подписок нет — создаём пустую таблицу нужной структуры
-		userSubsQuery = `(SELECT NULL::bigint AS user_id, NULL::text AS level WHERE false)`
-	} else {
-		// Есть подписки — нормальный VALUES
-		userSubsQuery = fmt.Sprintf(`(VALUES %s)`, subArray)
-	}
-	log.Println(userSubsQuery)
+
 	postsRows, err := tx.Query(ctx, fmt.Sprintf(`
 WITH sub_levels AS (
   SELECT * FROM (VALUES
@@ -264,7 +253,6 @@ WITH sub_levels AS (
   ) AS t(level, rank)
 ),
 user_subs AS (
-  SELECT * FROM %s AS t(user_id, level)
   SELECT * FROM %s AS t(user_id, level)
 ),
 post_with_levels AS (
@@ -302,7 +290,6 @@ SELECT
   ap.Media::text     AS "Media",
   ap.CreatedAt       AS "CreatedAt",
   ap.LikeNum         AS "LikeNum",        
-  ap.LikeNum         AS "LikeNum",        
   ap.Paid            AS "Paid",
   ap.SubLevel        AS "SubLevel",
   COUNT(c.Id)        AS "CommentsNum"
@@ -315,11 +302,9 @@ GROUP BY
   ap.Media,
   ap.CreatedAt,
   ap.LikeNum,
-  ap.LikeNum,
   ap.Paid,
   ap.SubLevel
 ORDER BY ap.CreatedAt DESC
-`, userSubsQuery))
 `, userSubsQuery))
 
 	posts, err := pgx.CollectRows(postsRows, pgx.RowToStructByName[models.Post])

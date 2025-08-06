@@ -1,23 +1,22 @@
 package rest
 
 import (
-	"context"
+	"github.com/rs/cors"
 	"log"
 	"net/http"
 	"os"
 	"post-service/internal/lib/jwt"
 	"post-service/internal/server/rest"
-	"post-service/internal/services/post"
-	"time"
+	"post-service/internal/services"
 )
 
 type RestApp struct {
-	server *http.Server
+	server *rest.ServerApi
 	port   string
 }
 
-func NewRestApp(postService *post.Post, port string, jwt *jwt.JWT) *RestApp {
-	server := rest.NewServer(*postService, port, jwt)
+func New(postService *services.Post, port string, jwt *jwt.JWT) *RestApp {
+	server := rest.New(*postService, port, jwt)
 
 	return &RestApp{
 		server: server,
@@ -34,20 +33,23 @@ func (app *RestApp) MustRun() {
 func (app *RestApp) Run() error {
 	log.Printf("Rest rest listening on port %s", app.port)
 
+	r := app.server.ConfigureRoutes()
+	http.Handle("/", cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"*"},
+		AllowCredentials: false,
+	}).Handler(r))
+
 	go func() {
-		if err := app.server.ListenAndServe(); err != nil {
-			log.Printf("Error starting http rest on port %s", app.port)
+		if err := http.ListenAndServe(app.port, nil); err != nil {
+			log.Printf("Rest rest listening on port %s", app.port)
 		}
 	}()
 	return nil
 }
 func (app *RestApp) Stop() {
 	log.Printf("Rest rest shutting down")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
-	app.server.Shutdown(ctx)
 
 	os.Exit(0)
 }
